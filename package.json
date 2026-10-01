@@ -1,0 +1,1 @@
+{"name":"stillwell-personal-finance","version":"1.0.0","private":true,"description":"Installable, local-first personal finance tracker","scripts":{"start":"node server.js","check":"node --check app.js && node --check finance-engine.js && node --check server.js && node --check sw.js","test":"node --test finance-engine.test.js"}}

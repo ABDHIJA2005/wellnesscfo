@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "Stillwell",
+    "slug": "stillwell-finance",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "stillwell",
+    "ios": { "bundleIdentifier": "com.stillwell.finance", "supportsTablet": true },
+    "android": { "package": "com.stillwell.finance", "adaptiveIcon": { "backgroundColor": "#294536" }, "edgeToEdgeEnabled": true },
+    "experiments": { "typedRoutes": false }
+  }
+}
