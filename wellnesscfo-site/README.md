@@ -16,7 +16,9 @@ Then open <http://localhost:3000>. The server stores application data in `data/w
 
 Profile and preference records are kept in separate SQLite tables from financial activity. Profile photos accept PNG, JPEG, and WebP files up to 512 KB and are stored in a separate user-scoped table. Email is read-only in profile settings. INR is the only supported calculation currency; the date display preference is saved per account.
 
-Passwords are hashed with Node.js `scrypt`. Sessions expire after 30 days and logging out invalidates the active session. The browser keeps the session token and a temporary dashboard summary cache; logout clears both. This app does not provide multi-currency calculations or cloud object storage.
+Passwords are hashed with Node.js `scrypt`. Sessions expire after 30 days and logging out invalidates the active session. Browser sessions use an `HttpOnly`, `SameSite=Lax` cookie; the browser no longer stores the bearer token in `localStorage`. A temporary dashboard summary cache may remain in browser storage and is cleared on logout. The local HTTP development cookie is not marked `Secure`; production startup is deliberately blocked until a PostgreSQL data layer is configured. This app does not provide multi-currency calculations or cloud object storage.
+
+The server serves the frontend and API from one origin. Cross-origin API access is not enabled. Production API errors are generic, request bodies are bounded, and the legacy browser-data migration endpoint is disabled in production. Demo-account credentials have been removed from the shipped frontend.
 
 ## Tests
 

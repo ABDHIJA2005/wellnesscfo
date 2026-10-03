@@ -55,6 +55,14 @@ const {
 
 const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'wellnesscfo.db');
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const SESSION_COOKIE = IS_PRODUCTION ? '__Host-wellnesscfo' : 'session';
+const MAX_REQUEST_BYTES = 3 * 1024 * 1024;
+
+// Prevent an accidental cloud deploy from running against Render's ephemeral filesystem.
+if (IS_PRODUCTION) {
+  throw new Error('Production startup is blocked until the PostgreSQL data layer is configured.');
+}
 
 const db = initDatabase(DB_PATH);
 
@@ -62,23 +70,71 @@ const db = initDatabase(DB_PATH);
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
+    let size = 0;
+    let exceeded = false;
+    const declaredLength = Number(req.headers['content-length']);
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) {
+      const error = new Error('Request body is too large.');
+      error.statusCode = 413;
+      reject(error);
+      req.resume();
+      return;
+    }
     req.on('data', chunk => {
-      body += chunk;
-      if (body.length > 10 * 1024 * 1024) { // 10MB limit
-        reject(new Error('Body too large'));
+      if (exceeded) return;
+      size += chunk.length;
+      if (size > MAX_REQUEST_BYTES) {
+        exceeded = true;
+        const error = new Error('Request body is too large.');
+        error.statusCode = 413;
+        reject(error);
+        return;
       }
+      body += chunk;
     });
     req.on('end', () => {
+      if (exceeded) return;
       if (!body) return resolve({});
       try {
         resolve(JSON.parse(body));
-      } catch (err) {
-        reject(new Error('Invalid JSON'));
+      } catch {
+        const error = new Error('Invalid JSON.');
+        error.statusCode = 400;
+        reject(error);
       }
     });
     req.on('error', reject);
   });
 }
+
+function sessionCookie(token, maxAge = 30 * 24 * 3600) {
+  const secure = IS_PRODUCTION ? '; Secure' : '';
+  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+}
+
+function clearSessionCookie() {
+  const secure = IS_PRODUCTION ? '; Secure' : '';
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+}
+
+function hasCrossOriginMutation(req) {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) || !req.headers.origin) return false;
+  try {
+    const origin = new URL(req.headers.origin);
+    const forwardedProtocol = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+    const expectedProtocol = forwardedProtocol || (req.socket.encrypted ? 'https' : 'http');
+    return origin.origin !== `${expectedProtocol}://${req.headers.host}`;
+  } catch {
+    return true;
+  }
+}
+
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), geolocation=(), microphone=()'
+};
 
 // Helper to send JSON responses
 function sendJSON(res, statusCode, data, headers = {}) {
@@ -86,9 +142,8 @@ function sendJSON(res, statusCode, data, headers = {}) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(json),
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Cache-Control': 'no-store',
+    ...SECURITY_HEADERS,
     ...headers
   });
   res.end(json);
@@ -101,7 +156,8 @@ function authenticate(req) {
   if (authHeader.startsWith('Bearer ')) {
     token = authHeader.slice(7).trim();
   } else if (req.headers.cookie) {
-    const m = req.headers.cookie.match(/session=([a-f0-9]+)/);
+    const escapedCookie = SESSION_COOKIE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const m = req.headers.cookie.match(new RegExp(`(?:^|;\\s*)${escapedCookie}=([a-f0-9]{64})(?:;|$)`));
     if (m) token = m[1];
   }
   if (!token) return null;
@@ -128,12 +184,12 @@ const server = http.createServer(async (req, res) => {
 
   // Handle CORS Preflight
   if (method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
-    });
+    res.writeHead(204, { ...SECURITY_HEADERS, 'Cache-Control': 'no-store' });
     return res.end();
+  }
+
+  if (hasCrossOriginMutation(req)) {
+    return sendJSON(res, 403, { error: 'Cross-origin requests are not allowed.' });
   }
 
   // --- API ROUTES ---
@@ -171,9 +227,9 @@ const server = http.createServer(async (req, res) => {
 
         return sendJSON(res, 201, {
           user: { id: userId, email, name: name.trim(), motto, avatarText: avatar },
-          token: session.token
+          ...(IS_PRODUCTION ? {} : { token: session.token })
         }, {
-          'Set-Cookie': `session=${session.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 3600}`
+          'Set-Cookie': sessionCookie(session.token)
         });
       }
 
@@ -198,9 +254,9 @@ const server = http.createServer(async (req, res) => {
 
         return sendJSON(res, 200, {
           user: { id: user.id, email: user.email, name: user.name, motto: user.motto, avatarText: user.avatar_text },
-          token: session.token
+          ...(IS_PRODUCTION ? {} : { token: session.token })
         }, {
-          'Set-Cookie': `session=${session.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 3600}`
+          'Set-Cookie': sessionCookie(session.token)
         });
       }
 
@@ -220,12 +276,13 @@ const server = http.createServer(async (req, res) => {
         const authHeader = req.headers['authorization'] || '';
         let token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
         if (!token && req.headers.cookie) {
-          const m = req.headers.cookie.match(/session=([a-f0-9]+)/);
+          const escapedCookie = SESSION_COOKIE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const m = req.headers.cookie.match(new RegExp(`(?:^|;\\s*)${escapedCookie}=([a-f0-9]{64})(?:;|$)`));
           if (m) token = m[1];
         }
         if (token) deleteSession(db, token);
         return sendJSON(res, 200, { success: true }, {
-          'Set-Cookie': 'session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'
+          'Set-Cookie': clearSessionCookie()
         });
       }
 
@@ -677,6 +734,7 @@ const server = http.createServer(async (req, res) => {
 
       // 16. Legacy Data Migration
       if (pathname === '/api/migrate' && method === 'POST') {
+        if (IS_PRODUCTION) return sendJSON(res, 404, { error: 'API route not found' });
         const legacyData = await parseBody(req);
         const result = migrateLegacyData(db, user.id, legacyData);
         return sendJSON(res, 200, { success: true, ...result });
@@ -800,7 +858,9 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       const safeMessage = err && err.message ? String(err.message).replace(/\s+/g, ' ').slice(0, 200) : 'Internal server error';
       console.error('API Error:', sanitizeForLogs(safeMessage));
-      return sendJSON(res, err && err.statusCode === 400 ? 400 : 500, { error: safeMessage || 'Internal server error' });
+      const statusCode = err && [400, 413].includes(err.statusCode) ? err.statusCode : 500;
+      const publicMessage = statusCode < 500 ? safeMessage : 'Internal server error';
+      return sendJSON(res, statusCode, { error: publicMessage });
     }
   }
 
@@ -824,12 +884,19 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(500);
         return res.end('Error loading file');
       }
-      res.writeHead(200, { 'Content-Type': contentType });
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': 'no-store',
+        ...SECURITY_HEADERS,
+        ...(ext === '.html' ? {
+          'Content-Security-Policy': "default-src 'self'; script-src 'self'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+        } : {})
+      });
       res.end(content);
     });
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`WellnessCFO Server running at http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`WellnessCFO Server listening on port ${PORT}`);
 });

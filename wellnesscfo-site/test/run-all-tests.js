@@ -34,7 +34,8 @@ async function run() {
       'phase4-advanced.test.js',
       'e2e-phase4-verification.js',
       'phase5-import-privacy.test.js',
-      'phase6-profile.test.js'
+      'phase6-profile.test.js',
+      'phase7-local-security.test.js'
     ];
     for (const test of tests) {
       const result = spawnSync(process.execPath, [path.join(__dirname, test)], {

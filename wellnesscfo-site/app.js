@@ -1,9 +1,11 @@
 // WellnessCFO — Client Application Logic (Phase 3: AI Intelligence & Command Center)
 const API_BASE = '/api';
-const TOKEN_KEY = 'wellnesscfo-token';
 const CACHE_KEY = 'wellnesscfo-cache';
 const LEGACY_KEY = 'wellnesscfo-data-v1';
 const MIGRATED_KEY = 'wellnesscfo-migrated-v1';
+
+// Remove bearer tokens left by earlier versions; browser sessions now use HttpOnly cookies.
+localStorage.removeItem('wellnesscfo-token');
 
 let currentUser = null;
 let profileAvatarData = null;
@@ -59,18 +61,16 @@ function toast(msg) {
 
 // Network Layer with Offline Fallback
 async function api(path, options = {}) {
-  const token = localStorage.getItem(TOKEN_KEY);
   const headers = {
     'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     ...(options.headers || {})
   };
 
   try {
-    const res = await fetch(`${API_BASE}${path}`, { credentials: 'omit', ...options, headers });
+    const res = await fetch(`${API_BASE}${path}`, { credentials: 'same-origin', ...options, headers });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      if (res.status === 401 && !['/auth/login', '/auth/signup'].includes(path)) {
+      if (res.status === 401 && !['/auth/login', '/auth/signup', '/auth/me'].includes(path)) {
         handleUnauthorized();
       }
       throw new Error(data.error || `HTTP error ${res.status}`);
@@ -98,7 +98,6 @@ function setSyncStatus(online) {
 
 // Authentication
 function handleUnauthorized() {
-  localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(CACHE_KEY);
   currentUser = null;
   profileAvatarData = null;
@@ -108,8 +107,6 @@ function handleUnauthorized() {
 }
 
 async function checkAuth() {
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (!token) return false;
   try {
     const data = await api('/auth/me');
     currentUser = data.user;
@@ -1899,7 +1896,6 @@ async function handleAuthSubmit(e) {
       });
     }
 
-    localStorage.setItem(TOKEN_KEY, res.token);
     currentUser = res.user;
     await loadProfileSettings();
     updateAuthUI();
@@ -1911,43 +1907,10 @@ async function handleAuthSubmit(e) {
   }
 }
 
-async function handleDemoLogin() {
-  try {
-    let res;
-    try {
-      res = await api('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email: 'demo@wellnesscfo.com', password: 'Password123!' })
-      });
-    } catch {
-      res = await api('/auth/signup', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: 'demo@wellnesscfo.com',
-          password: 'Password123!',
-          name: 'Personal CFO User',
-          motto: 'Peace of mind with money'
-        })
-      });
-    }
-
-    localStorage.setItem(TOKEN_KEY, res.token);
-    currentUser = res.user;
-    await loadProfileSettings();
-    updateAuthUI();
-    document.querySelector('#auth-dialog').close();
-    toast('Logged into Demo Account');
-    await refreshDashboard();
-  } catch (err) {
-    toast(`Demo login failed: ${err.message}`);
-  }
-}
-
 async function handleLogout() {
   try {
     await api('/auth/logout', { method: 'POST' });
   } catch {}
-  localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(CACHE_KEY);
   currentUser = null;
   profileAvatarData = null;
@@ -2628,7 +2591,6 @@ function initApp() {
   document.querySelector('#auth-btn')?.addEventListener('click', () => openAuthDialog(false));
   document.querySelector('#auth-toggle-mode')?.addEventListener('click', () => toggleAuthMode(!isRegisterMode));
   document.querySelector('#auth-form')?.addEventListener('submit', handleAuthSubmit);
-  document.querySelector('#demo-login-btn')?.addEventListener('click', handleDemoLogin);
   document.querySelector('#logout-btn')?.addEventListener('click', handleLogout);
   document.querySelector('#profile-save-btn')?.addEventListener('click', saveProfileSettings);
   document.querySelector('#profile-avatar-file')?.addEventListener('change', async event => {
