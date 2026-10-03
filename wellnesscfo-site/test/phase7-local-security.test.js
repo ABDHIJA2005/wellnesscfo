@@ -2,23 +2,30 @@
 
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { spawn, spawnSync } = require('node:child_process');
+const { spawn } = require('node:child_process');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
 const port = 35100 + Math.floor(Math.random() * 800);
 const base = `http://127.0.0.1:${port}`;
+const productionPort = port + 1000;
+const productionBase = `http://127.0.0.1:${productionPort}`;
 const server = spawn(process.execPath, [path.join(root, 'server.js')], {
   cwd: root,
   env: { ...process.env, NODE_ENV: 'test', PORT: String(port), DB_PATH: ':memory:' },
   stdio: 'ignore'
 });
+const productionServer = spawn(process.execPath, [path.join(root, 'server.js')], {
+  cwd: root,
+  env: { ...process.env, NODE_ENV: 'production', PORT: String(productionPort), DB_PATH: ':memory:', DATABASE_URL: '' },
+  stdio: 'ignore'
+});
 
-async function waitForServer() {
+async function waitForServer(url, processHandle) {
   for (let attempt = 0; attempt < 60; attempt += 1) {
-    if (server.exitCode != null) throw new Error(`Security test server exited (${server.exitCode})`);
+    if (processHandle.exitCode != null) throw new Error(`Security test server exited (${processHandle.exitCode})`);
     try {
-      const response = await fetch(`${base}/api/auth/me`);
+      const response = await fetch(`${url}/api/auth/me`);
       if (response.status === 401) return;
     } catch {}
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -41,7 +48,8 @@ async function request(route, { method = 'GET', body, cookie, origin } = {}) {
 
 async function run() {
   try {
-    await waitForServer();
+    await waitForServer(base, server);
+    await waitForServer(productionBase, productionServer);
     console.log('--- PHASE 7 LOCAL SECURITY HARDENING TESTS ---');
 
     const preflight = await request('/api/profile', { method: 'OPTIONS', origin: 'https://attacker.example' });
@@ -101,18 +109,22 @@ async function run() {
     assert.equal(clientScript.includes('demo@wellnesscfo.com'), false, 'Demo account credentials are absent from client code');
     assert.equal(clientScript.includes("localStorage.getItem('wellnesscfo-token')"), false, 'The browser does not read bearer tokens from local storage');
 
-    const productionStart = spawnSync(process.execPath, [path.join(root, 'server.js')], {
-      cwd: root,
-      env: { ...process.env, NODE_ENV: 'production', DB_PATH: ':memory:' },
-      encoding: 'utf8',
-      timeout: 5000
+    const productionPage = await fetch(productionBase);
+    assert.equal(productionPage.status, 200, 'Production mode starts locally without a PostgreSQL URL');
+    assert.equal(productionPage.headers.get('content-security-policy').includes('fonts.googleapis.com'), false, 'The app does not depend on remote font services');
+    const productionSignup = await fetch(`${productionBase}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: productionBase },
+      body: JSON.stringify({ name: 'Local Production', email: `phase7-prod-${crypto.randomUUID()}@example.test`, password: 'long-enough-password' })
     });
-    assert.notEqual(productionStart.status, 0, 'Production cannot silently start with local SQLite');
-    assert.match(productionStart.stderr, /Production startup is blocked until the PostgreSQL data layer is configured/);
+    assert.equal(productionSignup.status, 201, 'Production mode can create a local SQLite-backed account');
+    assert.match(productionSignup.headers.get('set-cookie'), /__Host-wellnesscfo=.*;.*HttpOnly;.*Secure/);
+    assert.equal(Object.hasOwn(await productionSignup.json(), 'token'), false, 'Production auth does not expose the session token in JSON');
 
-    console.log('✓ Same-origin cookie auth, CORS denial, CSRF origin check, bounded bodies, safe errors, security headers, demo removal, and production fail-closed guard');
+    console.log('✓ Same-origin cookie auth, CORS denial, CSRF origin check, bounded bodies, safe errors, security headers, demo removal, offline assets, and local SQLite startup in production mode');
   } finally {
     server.kill();
+    productionServer.kill();
   }
 }
 

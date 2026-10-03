@@ -59,11 +59,6 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const SESSION_COOKIE = IS_PRODUCTION ? '__Host-wellnesscfo' : 'session';
 const MAX_REQUEST_BYTES = 3 * 1024 * 1024;
 
-// Prevent an accidental cloud deploy from running against Render's ephemeral filesystem.
-if (IS_PRODUCTION) {
-  throw new Error('Production startup is blocked until the PostgreSQL data layer is configured.');
-}
-
 const db = initDatabase(DB_PATH);
 
 // Helper to parse JSON body
@@ -889,7 +884,7 @@ const server = http.createServer(async (req, res) => {
         'Cache-Control': 'no-store',
         ...SECURITY_HEADERS,
         ...(ext === '.html' ? {
-          'Content-Security-Policy': "default-src 'self'; script-src 'self'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+          'Content-Security-Policy': "default-src 'self'; script-src 'self'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
         } : {})
       });
       res.end(content);
