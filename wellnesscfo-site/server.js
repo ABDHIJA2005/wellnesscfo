@@ -1,8 +1,11 @@
 const http = require('node:http');
 const path = require('node:path');
 const fs = require('node:fs');
+const os = require('node:os');
 const crypto = require('node:crypto');
 const { initDatabase } = require('./server/db');
+const { acquireDatabaseLock } = require('./server/database-lock');
+const { createDatabaseBackup } = require('./server/backup');
 const { hashPassword, verifyPassword, createSession, getUserFromSession, deleteSession } = require('./server/auth');
 const {
   setupDefaultEntities,
@@ -41,7 +44,6 @@ const {
 const { parseNaturalLanguageTransaction } = require('./server/ai/deterministic-parser');
 const { processAIQuery } = require('./server/ai/cfo-assistant');
 const { parseCsvRecords } = require('./server/statement-import');
-const { sanitizeForLogs } = require('./server/ai/privacy');
 const {
   ensureUserProfile,
   getProfile,
@@ -54,12 +56,21 @@ const {
 } = require('./server/profile-store');
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '127.0.0.1';
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'wellnesscfo.db');
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const IS_TEST = process.env.NODE_ENV === 'test';
 const SESSION_COOKIE = IS_PRODUCTION ? '__Host-wellnesscfo' : 'session';
 const MAX_REQUEST_BYTES = 3 * 1024 * 1024;
 
-const db = initDatabase(DB_PATH);
+const releaseDatabaseLock = acquireDatabaseLock(DB_PATH);
+let db;
+try {
+  db = initDatabase(DB_PATH);
+} catch (error) {
+  releaseDatabaseLock();
+  throw error;
+}
 
 // Helper to parse JSON body
 function parseBody(req) {
@@ -210,19 +221,28 @@ const server = http.createServer(async (req, res) => {
         const now = new Date().toISOString();
         const avatar = (name.trim().charAt(0) || 'A').toUpperCase();
 
-        db.prepare(`
-          INSERT INTO users (id, email, password_hash, salt, name, motto, avatar_text, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(userId, email.trim(), hash, salt, name.trim(), motto || null, avatar, now);
+        db.exec('SAVEPOINT signup_account');
+        let session;
+        try {
+          db.prepare(`
+            INSERT INTO users (id, email, password_hash, salt, name, motto, avatar_text, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(userId, email.trim(), hash, salt, name.trim(), motto || null, avatar, now);
 
-        ensureUserProfile(db, userId);
+          ensureUserProfile(db, userId);
 
-        setupDefaultEntities(db, userId);
-        const session = createSession(db, userId);
+          setupDefaultEntities(db, userId);
+          session = createSession(db, userId);
+          db.exec('RELEASE SAVEPOINT signup_account');
+        } catch (error) {
+          db.exec('ROLLBACK TO SAVEPOINT signup_account');
+          db.exec('RELEASE SAVEPOINT signup_account');
+          throw error;
+        }
 
         return sendJSON(res, 201, {
           user: { id: userId, email, name: name.trim(), motto, avatarText: avatar },
-          ...(IS_PRODUCTION ? {} : { token: session.token })
+          ...(IS_TEST ? { token: session.token } : {})
         }, {
           'Set-Cookie': sessionCookie(session.token)
         });
@@ -249,7 +269,7 @@ const server = http.createServer(async (req, res) => {
 
         return sendJSON(res, 200, {
           user: { id: user.id, email: user.email, name: user.name, motto: user.motto, avatarText: user.avatar_text },
-          ...(IS_PRODUCTION ? {} : { token: session.token })
+          ...(IS_TEST ? { token: session.token } : {})
         }, {
           'Set-Cookie': sessionCookie(session.token)
         });
@@ -285,6 +305,34 @@ const server = http.createServer(async (req, res) => {
       const user = authenticate(req);
       if (!user) {
         return sendJSON(res, 401, { error: 'Authentication required' });
+      }
+
+      if (pathname === '/api/backup' && method === 'GET') {
+        const filename = `wellnesscfo-backup-${new Date().toISOString().replaceAll(':', '-')}-${crypto.randomUUID()}.sqlite`;
+        const temporaryPath = path.join(os.tmpdir(), filename);
+        createDatabaseBackup(db, temporaryPath);
+        res.writeHead(200, {
+          'Content-Type': 'application/vnd.sqlite3',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Content-Length': fs.statSync(temporaryPath).size,
+          'Cache-Control': 'no-store',
+          ...SECURITY_HEADERS
+        });
+        const stream = fs.createReadStream(temporaryPath);
+        const cleanup = () => {
+          try { fs.rmSync(temporaryPath, { force: true }); } catch {}
+        };
+        stream.on('error', error => {
+          cleanup();
+          if (!res.destroyed) res.destroy(error);
+        });
+        stream.on('close', cleanup);
+        res.on('close', () => {
+          if (!res.writableFinished) stream.destroy();
+          cleanup();
+        });
+        stream.pipe(res);
+        return;
       }
 
       // Phase 6: authenticated, user-scoped profile and preference APIs.
@@ -851,9 +899,12 @@ const server = http.createServer(async (req, res) => {
 
       return sendJSON(res, 404, { error: 'API route not found' });
     } catch (err) {
-      const safeMessage = err && err.message ? String(err.message).replace(/\s+/g, ' ').slice(0, 200) : 'Internal server error';
-      console.error('API Error:', sanitizeForLogs(safeMessage));
       const statusCode = err && [400, 413].includes(err.statusCode) ? err.statusCode : 500;
+      if (statusCode >= 500) {
+        const safeCode = err && /^[A-Z0-9_]{1,40}$/.test(String(err.code || '')) ? String(err.code) : 'INTERNAL_ERROR';
+        console.error('API Error:', safeCode);
+      }
+      const safeMessage = err && err.message ? String(err.message).replace(/\s+/g, ' ').slice(0, 200) : 'Internal server error';
       const publicMessage = statusCode < 500 ? safeMessage : 'Internal server error';
       return sendJSON(res, statusCode, { error: publicMessage });
     }
@@ -892,6 +943,18 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`WellnessCFO Server listening on port ${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`WellnessCFO Server listening on ${HOST}:${PORT}`);
 });
+
+let isShuttingDown = false;
+function shutdown() {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  server.close(() => {
+    try { db.close(); } finally { releaseDatabaseLock(); }
+  });
+}
+
+process.once('SIGINT', shutdown);
+process.once('SIGTERM', shutdown);

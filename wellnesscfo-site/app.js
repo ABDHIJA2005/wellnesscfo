@@ -1953,6 +1953,33 @@ async function saveProfileSettings() {
   }
 }
 
+async function downloadDatabaseBackup() {
+  const button = document.querySelector('#download-backup-btn');
+  const status = document.querySelector('#backup-status');
+  button.disabled = true;
+  status.textContent = 'Preparing a consistent database backup…';
+  try {
+    const response = await fetch('/api/backup', { credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) throw new Error(response.status === 401 ? 'Please sign in again to back up your data.' : 'Could not create a backup.');
+    const blob = await response.blob();
+    const disposition = response.headers.get('content-disposition') || '';
+    const match = disposition.match(/filename="([^"]+)"/);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = match ? match[1] : 'wellnesscfo-backup.sqlite';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    status.textContent = 'Backup downloaded. Keep this file private.';
+  } catch (error) {
+    status.textContent = error.message || 'Could not create a backup.';
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function bytesToBase64(bytes) {
   let binary = '';
   for (let offset = 0; offset < bytes.length; offset += 0x8000) {
@@ -2593,6 +2620,7 @@ function initApp() {
   document.querySelector('#auth-form')?.addEventListener('submit', handleAuthSubmit);
   document.querySelector('#logout-btn')?.addEventListener('click', handleLogout);
   document.querySelector('#profile-save-btn')?.addEventListener('click', saveProfileSettings);
+  document.querySelector('#download-backup-btn')?.addEventListener('click', downloadDatabaseBackup);
   document.querySelector('#profile-avatar-file')?.addEventListener('change', async event => {
     const file = event.target.files?.[0];
     if (!file) return;

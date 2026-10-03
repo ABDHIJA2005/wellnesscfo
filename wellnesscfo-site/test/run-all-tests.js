@@ -4,9 +4,10 @@ const { spawn, spawnSync } = require('node:child_process');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
+process.env.NODE_ENV = 'test';
 const server = spawn(process.execPath, [path.join(root, 'server.js')], {
   cwd: root,
-  env: { ...process.env, PORT: '3000', DB_PATH: ':memory:' },
+  env: { ...process.env, NODE_ENV: 'test', PORT: '3000', DB_PATH: ':memory:' },
   stdio: 'ignore'
 });
 
@@ -35,7 +36,8 @@ async function run() {
       'e2e-phase4-verification.js',
       'phase5-import-privacy.test.js',
       'phase6-profile.test.js',
-      'phase7-local-security.test.js'
+      'phase7-local-security.test.js',
+      'phase8-local-data.test.js'
     ];
     for (const test of tests) {
       const result = spawnSync(process.execPath, [path.join(__dirname, test)], {

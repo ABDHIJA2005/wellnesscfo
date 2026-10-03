@@ -15,35 +15,57 @@ function verifyPassword(password, hash, salt) {
   return crypto.timingSafeEqual(derivedKey, hashBuffer);
 }
 
+function hashSessionToken(token) {
+  return crypto.createHash('sha256').update(token, 'utf8').digest('hex');
+}
+
+function safelyMatchesTokenHash(storedHash, candidateHash) {
+  if (!/^[a-f0-9]{64}$/i.test(storedHash || '') || !/^[a-f0-9]{64}$/i.test(candidateHash || '')) return false;
+  return crypto.timingSafeEqual(Buffer.from(storedHash, 'hex'), Buffer.from(candidateHash, 'hex'));
+}
+
 function createSession(db, userId, daysValid = 30) {
   const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = hashSessionToken(token);
   const now = new Date();
   const expires = new Date(now.getTime() + daysValid * 24 * 60 * 60 * 1000);
 
   db.prepare(`
     INSERT INTO sessions (token, user_id, created_at, expires_at)
     VALUES (?, ?, ?, ?)
-  `).run(token, userId, now.toISOString(), expires.toISOString());
+  `).run(tokenHash, userId, now.toISOString(), expires.toISOString());
 
   return { token, expiresAt: expires.toISOString() };
 }
 
 function getUserFromSession(db, token) {
-  if (!token) return null;
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) return null;
   const now = new Date().toISOString();
-  const session = db.prepare(`
+  const selectSession = `
     SELECT s.token, s.user_id, s.expires_at, u.id, u.email, u.name, u.motto, u.avatar_text
     FROM sessions s
     JOIN users u ON u.id = s.user_id
     WHERE s.token = ? AND s.expires_at > ?
-  `).get(token, now);
+  `;
+  const tokenHash = hashSessionToken(token);
+  const hashedSession = db.prepare(selectSession).get(tokenHash, now);
+  if (hashedSession && safelyMatchesTokenHash(hashedSession.token, tokenHash)) {
+    delete hashedSession.token;
+    return hashedSession;
+  }
 
-  return session || null;
+  // Upgrade valid sessions created by older versions without logging the user out.
+  const legacySession = db.prepare(selectSession).get(token, now);
+  if (!legacySession || !safelyMatchesTokenHash(hashSessionToken(legacySession.token), tokenHash)) return null;
+  db.prepare('UPDATE sessions SET token = ? WHERE token = ?').run(tokenHash, token);
+  delete legacySession.token;
+  return legacySession;
+
 }
 
 function deleteSession(db, token) {
-  if (!token) return;
-  db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) return;
+  db.prepare('DELETE FROM sessions WHERE token IN (?, ?)').run(hashSessionToken(token), token);
 }
 
 module.exports = {

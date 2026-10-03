@@ -599,6 +599,14 @@
           <p>Email changes are unavailable here and require a separate verification flow. Your session expires after 30 days; logging out invalidates this session. Profile and financial records are stored in the local SQLite database configured for this WellnessCFO server.</p>
         </section>
 
+        <section class="profile-settings-section" aria-labelledby="backup-heading">
+          <div class="eyebrow">LOCAL DATA</div>
+          <h3 id="backup-heading">Back up your account</h3>
+          <p>Your backup contains the complete local database, including financial records for every account on this WellnessCFO installation. Store it somewhere private and encrypted.</p>
+          <button type="button" class="outline-btn" id="download-backup-btn">Download SQLite backup</button>
+          <span id="backup-status" role="status" aria-live="polite"></span>
+        </section>
+
         <div class="profile-save-row">
           <span id="profile-save-status" role="status" aria-live="polite"></span>
           <button type="button" class="primary" id="profile-save-btn">Save changes</button>

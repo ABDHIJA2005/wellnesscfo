@@ -1,6 +1,18 @@
 const crypto = require('node:crypto');
 
 function setupDefaultEntities(db, userId) {
+  db.exec('SAVEPOINT setup_default_entities;');
+  try {
+    setupDefaultEntitiesInternal(db, userId);
+    db.exec('RELEASE SAVEPOINT setup_default_entities;');
+  } catch (error) {
+    db.exec('ROLLBACK TO SAVEPOINT setup_default_entities;');
+    db.exec('RELEASE SAVEPOINT setup_default_entities;');
+    throw error;
+  }
+}
+
+function setupDefaultEntitiesInternal(db, userId) {
   const existingAccounts = db.prepare('SELECT COUNT(*) as c FROM accounts WHERE user_id = ?').get(userId);
   if (existingAccounts.c > 0) {
     // Ensure default goals exist even if accounts were created earlier
@@ -1141,17 +1153,25 @@ function recordInvestment(db, userId, data) {
   const accountId = data.account_id || null;
   const notes = data.notes || null;
 
-  db.prepare(`
-    INSERT INTO investments (id, user_id, account_id, name, type, invested_amount, current_value, units, sip_amount, sip_day, notes, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, userId, accountId, name, type, invested, currentVal, units, sipAmount, sipDay, notes, now, now);
-
-  if (invested > 0) {
-    const txId = 'itx_' + crypto.randomBytes(8).toString('hex');
+  db.exec('SAVEPOINT investment_create;');
+  try {
     db.prepare(`
-      INSERT INTO investment_transactions (id, user_id, investment_id, type, amount, units, date, notes, created_at)
-      VALUES (?, ?, ?, 'contribution', ?, ?, ?, 'Initial investment record', ?)
-    `).run(txId, userId, id, invested, units, now.slice(0, 10), now);
+      INSERT INTO investments (id, user_id, account_id, name, type, invested_amount, current_value, units, sip_amount, sip_day, notes, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, userId, accountId, name, type, invested, currentVal, units, sipAmount, sipDay, notes, now, now);
+
+    if (invested > 0) {
+      const txId = 'itx_' + crypto.randomBytes(8).toString('hex');
+      db.prepare(`
+        INSERT INTO investment_transactions (id, user_id, investment_id, type, amount, units, date, notes, created_at)
+        VALUES (?, ?, ?, 'contribution', ?, ?, ?, 'Initial investment record', ?)
+      `).run(txId, userId, id, invested, units, now.slice(0, 10), now);
+    }
+    db.exec('RELEASE SAVEPOINT investment_create;');
+  } catch (error) {
+    db.exec('ROLLBACK TO SAVEPOINT investment_create;');
+    db.exec('RELEASE SAVEPOINT investment_create;');
+    throw error;
   }
 
   return { id, name, type, invested_amount: invested, current_value: currentVal };
@@ -1692,7 +1712,9 @@ function postRecurringToLedger(db, userId, recurringId, postDate) {
   const isSIP = commitment.type === 'sip';
   const txType = isIncome ? 'income' : (isSIP ? 'transfer_bucket' : 'expense');
 
-  const tx = recordTransaction(db, userId, {
+  db.exec('SAVEPOINT recurring_post;');
+  try {
+    const tx = recordTransaction(db, userId, {
     account_id: commitment.account_id,
     bucket_id: commitment.bucket_id,
     type: txType,
@@ -1702,15 +1724,34 @@ function postRecurringToLedger(db, userId, recurringId, postDate) {
     category: isSIP ? 'Investments & SIP' : (commitment.type === 'rent' ? 'Rent & Utilities' : (commitment.type === 'subscription' ? 'Subscriptions & Entertainment' : 'General')),
     necessity: isIncome ? 'Necessary' : (isSIP ? 'Planned' : (commitment.type === 'rent' ? 'Necessary' : 'Optional')),
     source: 'recurring_auto_post'
-  });
+    });
 
-  const nextDate = computeNextOccurrenceDate(commitment.next_date, commitment.frequency);
-  db.prepare('UPDATE recurring_commitments SET next_date = ? WHERE id = ? AND user_id = ?').run(nextDate, recurringId, userId);
+    const nextDate = computeNextOccurrenceDate(commitment.next_date, commitment.frequency);
+    db.prepare('UPDATE recurring_commitments SET next_date = ? WHERE id = ? AND user_id = ?').run(nextDate, recurringId, userId);
+    db.exec('RELEASE SAVEPOINT recurring_post;');
 
-  return { success: true, transaction: tx, nextDate };
+    return { success: true, transaction: tx, nextDate };
+  } catch (error) {
+    db.exec('ROLLBACK TO SAVEPOINT recurring_post;');
+    db.exec('RELEASE SAVEPOINT recurring_post;');
+    throw error;
+  }
 }
 
 function migrateLegacyData(db, userId, legacyData) {
+  db.exec('SAVEPOINT legacy_data_migration;');
+  try {
+    const result = migrateLegacyDataInternal(db, userId, legacyData);
+    db.exec('RELEASE SAVEPOINT legacy_data_migration;');
+    return result;
+  } catch (error) {
+    db.exec('ROLLBACK TO SAVEPOINT legacy_data_migration;');
+    db.exec('RELEASE SAVEPOINT legacy_data_migration;');
+    throw error;
+  }
+}
+
+function migrateLegacyDataInternal(db, userId, legacyData) {
   if (!legacyData || typeof legacyData !== 'object') {
     return { migratedTransactions: 0, migratedPortfolio: 0 };
   }
