@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f4ef">
+  <title>WellnessCFO — money, in perspective</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#"><span class="brand-mark">w</span><span>wellness<span class="brand-light">cfo</span></span></a>
+    <div class="workspace-label">YOUR MONEY, IN PERSPECTIVE</div>
+    <nav aria-label="Main navigation">
+      <a class="nav-item active" href="#overview"><span>◫</span>Overview</a>
+      <a class="nav-item" href="#ai-section"><span>✦</span>AI Command Center</a>
+      <a class="nav-item" href="#charts-section"><span>⌁</span>Charts & Trends</a>
+      <a class="nav-item" href="#buckets-section"><span>☲</span>Buckets & Goals</a>
+      <a class="nav-item" href="#accounts-section"><span>◧</span>Accounts</a>
+      <a class="nav-item" href="#activity"><span>↕</span>Transactions</a>
+      <a class="nav-item" href="#investments-section"><span>◉</span>Investments</a>
+      <a class="nav-item" href="#lending-section"><span>⇄</span>Lending & Splits</a>
+      <a class="nav-item" href="#calendar-section"><span>◷</span>Timeline & Bills</a>
+      <a class="nav-item" href="#imports"><span>↥</span>Import & review</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="avatar" id="sidebar-avatar">A</div>
+      <div>
+        <strong id="sidebar-user-name">Your finances</strong>
+        <small id="sidebar-user-status">Private workspace</small>
+      </div>
+      <button class="icon-btn more" id="auth-btn" title="Account settings">···</button>
+    </div>
+  </aside>
+
+  <main id="overview">
+    <header class="topbar">
+      <div class="breadcrumb">Your finances <span>/</span> Overview</div>
+      <div class="top-actions">
+        <span class="sync-indicator" id="sync-status"><span class="sync-dot"></span> Server connected</span>
+        <span class="today" id="today"></span>
+        <button class="clickable-avatar" id="topbar-profile-btn" aria-label="User Profile">
+          <div class="avatar small" id="topbar-avatar">A</div>
+          <span id="topbar-name" style="font-weight:600;font-size:12px;color:var(--ink)">Account</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="page-wrap">
+      <section class="welcome">
+        <div>
+          <div class="eyebrow">YOUR FINANCIAL WELLBEING</div>
+          <h1 id="welcome-title">A clearer view of your money.</h1>
+          <p id="welcome-sub">Small steps add up. Here’s where things stand.</p>
+        </div>
+        <div class="btn-group">
+          <button class="primary" id="open-record-modal-btn"><span>＋</span> Add record</button>
+          <button class="outline-btn" id="open-transfer-modal-btn"><span>⇄</span> Transfer</button>
+        </div>
+      </section>
+
+      <!-- Primary Financial Summary Grid -->
+      <section class="summary-grid" aria-label="Financial summary">
+        <!-- Card 1: Net Worth -->
+        <article class="summary-card balance-card">
+          <div class="card-top">
+            <span>Net Worth</span>
+            <span class="card-icon">◉</span>
+          </div>
+          <div class="big-number" id="balance">₹0</div>
+          <div class="card-note" id="balance-note">
+            <span>Total assets minus liabilities</span>
+          </div>
+          <div class="sparkline" id="sparkline-container"></div>
+        </article>
+
+        <!-- Card 2: Available Cash -->
+        <article class="summary-card">
+          <div class="card-top">
+            <span>Available Cash</span>
+            <span class="card-icon green">↙</span>
+          </div>
+          <div class="metric" id="available-cash">₹0</div>
+          <div class="card-note" id="cash-note">
+            <span>In liquid bank & cash accounts</span>
+          </div>
+          <div class="mini-bars" id="cash-bars"></div>
+        </article>
+
+        <!-- Card 3: Spending This Month -->
+        <article class="summary-card">
+          <div class="card-top">
+            <span>Spending <span class="period" id="month-label">THIS MONTH</span></span>
+            <span class="card-icon rose">↗</span>
+          </div>
+          <div class="metric" id="spending">₹0</div>
+          <div class="card-note" id="spending-note">
+            <span>Income: ₹0</span>
+          </div>
+          <div class="mini-bars rose-bars" id="spending-bars"></div>
+        </article>
+      </section>
+
+      <!-- Secondary CFO Metric Strip -->
+      <section class="cfo-strip" aria-label="CFO Pillars">
+        <article class="cfo-strip-card">
+          <div class="label">Savings Fund</div>
+          <div class="val" id="cfo-savings">₹0</div>
+          <div class="sub" id="cfo-savings-sub">Reserved capital</div>
+        </article>
+        <article class="cfo-strip-card">
+          <div class="label">Emergency Fund</div>
+          <div class="val" id="cfo-emergency">₹0</div>
+          <div class="sub" id="cfo-emergency-sub">0.0 mos runway</div>
+        </article>
+        <article class="cfo-strip-card">
+          <div class="label">Business Fund</div>
+          <div class="val" id="cfo-business">₹0</div>
+          <div class="sub" id="cfo-business-sub">0% funded</div>
+        </article>
+        <article class="cfo-strip-card">
+          <div class="label">Investments</div>
+          <div class="val" id="cfo-investments">₹0</div>
+          <div class="sub" id="cfo-investments-sub">Long-term wealth</div>
+        </article>
+        <article class="cfo-strip-card">
+          <div class="label">Net Receivables</div>
+          <div class="val" id="cfo-receivables">₹0</div>
+          <div class="sub" id="cfo-receivables-sub">Lent / split owed</div>
+        </article>
+      </section>
+
+      <section class="panel financial-insights" id="financial-insights-section" aria-labelledby="insights-title">
+        <div class="panel-heading insights-heading">
+          <div><div class="eyebrow">DETERMINISTIC FINANCIAL INTELLIGENCE</div><h2 id="insights-title">Your monthly picture</h2></div>
+          <label class="insights-month-label" for="insights-month">Month <input id="insights-month" type="month"></label>
+        </div>
+        <p class="insights-note" id="insights-period-note" role="status">Sign in to view insights calculated from your local financial records.</p>
+        <div class="insights-metrics" id="insights-metrics"></div>
+        <div class="insights-columns">
+          <div><h3>Cash flow</h3><div id="insights-cashflow"></div><h3>Savings-rate trend</h3><div id="insights-savings-trend"></div><h3>Spending by category</h3><div id="insights-categories"></div><div id="insights-classification"></div><h3>Monthly review</h3><div id="insights-monthly-review"></div><h3>Recorded patterns</h3><div id="insights-patterns"></div></div>
+          <div><h3>Month comparison</h3><div id="insights-comparison"></div><h3>Goals and emergency fund</h3><div id="insights-reserves"></div><h3>Recurring commitments</h3><div id="insights-recurring"></div><h3>Net worth</h3><div id="insights-networth"></div></div>
+        </div>
+        <div class="insights-affordability">
+          <h3>Purchase balance estimate</h3>
+          <p>Shows the estimated liquid balance after the listed commitments and reserves. It is not a recommendation.</p>
+          <form id="insights-affordability-form" class="insights-form">
+            <label>Purchase amount (₹)<input type="number" id="affordability-purchase-amount" min="0.01" step="0.01" required></label>
+            <label>Optional balance to keep (₹)<input type="number" id="affordability-target-balance" min="0" step="0.01" value="0"></label>
+            <button class="primary" type="submit">Calculate estimate</button>
+          </form>
+          <div id="insights-affordability-result" role="status"></div>
+        </div>
+      </section>
+
+      <!-- Phase 3: AI Command Center Section -->
+      <section class="panel ai-panel" id="ai-section">
+        <div class="ai-header">
+          <div>
+            <div class="eyebrow" style="color:var(--sage-dark)">✦ FINANCIAL INTELLIGENCE</div>
+            <h2 style="font:600 18px Manrope;margin:4px 0 0">Personal CFO Command Center</h2>
+          </div>
+          <span style="font-size:11px;color:var(--muted)">Evidence-based & privacy sanitized</span>
+        </div>
+
+        <!-- Suggested Prompt Chips -->
+        <div class="ai-prompt-chips">
+          <button class="chip-btn" data-query="How much did I spend on food this month?">Food spending this month</button>
+          <button class="chip-btn" data-query="Show recorded spending patterns">Spending patterns</button>
+          <button class="chip-btn" data-query="Can I afford ₹3,000 shoes?">Can I afford ₹3,000 shoes?</button>
+          <button class="chip-btn" data-query="What could ₹3,000 become if invested?">Opportunity cost of ₹3,000</button>
+          <button class="chip-btn" data-query="Move ₹1,000 from savings to business">Move ₹1,000 savings → business</button>
+          <button class="chip-btn" data-query="Show recorded spending patterns">Analyze patterns</button>
+          <button class="chip-btn" data-query="Generate monthly review">Monthly CFO Review</button>
+        </div>
+
+        <!-- Command Input -->
+        <div class="ai-input-wrap">
+          <span style="color:var(--sage);font-weight:700">✦</span>
+          <input type="text" id="ai-query-input" placeholder="Ask your CFO or type a command... (e.g., Can I afford ₹5,000? or Move ₹1k to savings)">
+          <button class="primary" id="ai-query-btn" style="padding:8px 16px">Ask CFO</button>
+        </div>
+
+        <!-- Output Stream -->
+        <div id="ai-output-stream"></div>
+      </section>
+
+      <!-- Real Time-Series Chart Panel -->
+      <section class="panel chart-panel" id="charts-section">
+        <div class="chart-toolbar">
+          <div>
+            <div class="eyebrow">DYNAMICS & TRENDS</div>
+            <h2 style="font:600 17px Manrope;margin:4px 0 0" id="chart-heading">Cash Flow Dynamics</h2>
+          </div>
+          <div class="chart-controls">
+            <!-- Interval pills -->
+            <div style="display:flex;gap:4px;background:#f2f4ec;padding:3px;border-radius:7px">
+              <button class="chart-view-btn" data-interval="daily">Daily</button>
+              <button class="chart-view-btn" data-interval="weekly">Weekly</button>
+              <button class="chart-view-btn active" data-interval="monthly">Monthly</button>
+              <button class="chart-view-btn" data-interval="yearly">Yearly</button>
+            </div>
+            <!-- View pills -->
+            <div style="display:flex;gap:4px;background:#f2f4ec;padding:3px;border-radius:7px">
+              <button class="chart-view-btn active" data-view="cashflow">Cash Flow</button>
+              <button class="chart-view-btn" data-view="allocation">Allocation</button>
+              <button class="chart-view-btn" data-view="categories">Categories</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="svg-chart-wrap" id="svg-chart-wrap">
+          <svg id="chart-svg" viewBox="0 0 800 220" preserveAspectRatio="none"></svg>
+          <div class="chart-tooltip" id="chart-tooltip"></div>
+        </div>
+        <div id="chart-legend" style="display:flex;gap:18px;justify-content:center;margin-top:14px;font-size:11px;color:var(--muted)"></div>
+      </section>
+
+      <!-- Buckets & Goals Section -->
+      <section class="panel" id="buckets-section" style="margin-bottom:19px">
+        <div class="panel-heading">
+          <div>
+            <div class="eyebrow">MONEY BUCKETS & GOALS</div>
+            <h2>Where your money sits & what it’s for</h2>
+          </div>
+          <div class="btn-group">
+            <button class="outline-btn" id="open-bucket-transfer-btn"><span>⇄</span> Move between buckets</button>
+            <button class="outline-btn" id="add-bucket-btn"><span>＋</span> New bucket</button>
+          </div>
+        </div>
+
+        <div class="buckets-grid" id="buckets-container"></div>
+
+        <div style="margin-top:22px">
+          <div class="eyebrow">FINANCIAL GOALS</div>
+          <div class="goals-grid" id="goals-container"></div>
+        </div>
+      </section>
+
+      <!-- Accounts Manager Section -->
+      <section class="panel" id="accounts-section" style="margin-bottom:19px">
+        <div class="panel-heading">
+          <div>
+            <div class="eyebrow">ACCOUNT REPOSITORIES</div>
+            <h2>Accounts & balances</h2>
+          </div>
+          <div class="btn-group">
+            <button class="outline-btn" id="open-acc-transfer-btn"><span>⇄</span> Transfer between accounts</button>
+            <button class="outline-btn" id="add-account-btn"><span>＋</span> New Account</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px" id="accounts-list"></div>
+      </section>
+
+      <!-- Activity & Investments Grid -->
+      <section class="content-grid">
+        <article class="panel activity-panel" id="activity">
+          <div class="panel-heading">
+            <div>
+              <div class="eyebrow">YOUR CASH FLOW</div>
+              <h2>Recent activity</h2>
+            </div>
+            <a class="text-link" href="#activity" id="view-all-tx">View all <span>→</span></a>
+          </div>
+
+          <div class="filters">
+            <button class="filter active" data-filter="all">All</button>
+            <button class="filter" data-filter="income">Income</button>
+            <button class="filter" data-filter="expense">Spending</button>
+            <button class="filter" data-filter="transfers">Transfers</button>
+            <button class="filter" data-filter="investments">Investments</button>
+            <select id="category-filter" style="margin-left:auto;font-size:10px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:white">
+              <option value="all">All categories</option>
+            </select>
+          </div>
+
+          <div class="transaction-list" id="transaction-list"></div>
+        </article>
+
+        <div class="right-column">
+          <article class="panel invest-panel" id="investments">
+            <div class="panel-heading">
+              <div>
+                <div class="eyebrow">LONG-TERM GROWTH</div>
+                <h2>Investments</h2>
+              </div>
+              <span class="card-icon">⌁</span>
+            </div>
+            <div class="investment-total" id="investment-total">₹0</div>
+            <div class="card-note"><span>Across stocks, mutual funds & holdings</span></div>
+            <div class="allocation" id="allocation-bar"></div>
+            <div class="legend" id="allocation-legend"></div>
+            <button class="outline-btn" onclick="document.querySelector('#portfolio-input').click()">↥ &nbsp;Update portfolio</button>
+          </article>
+
+          <article class="wellness-note">
+            <div class="note-mark">✳</div>
+            <div class="eyebrow">A GENTLE REMINDER</div>
+            <p>Good money habits are built one small choice at a time.</p>
+            <a href="#imports">Keep your records current <span>→</span></a>
+          </article>
+        </div>
+      </section>
+
+      <!-- Phase 4: Investments Portfolio & Holdings Section -->
+      <section class="panel" id="investments-section" style="margin-bottom:19px">
+        <div class="panel-heading">
+          <div>
+            <div class="eyebrow">PORTFOLIO & WEALTH ENGINE</div>
+            <h2>Holdings & SIP Portfolio</h2>
+          </div>
+          <div class="btn-group">
+            <button class="outline-btn" id="open-holding-tx-btn"><span>⇄</span> Record Buy / Sell / SIP</button>
+            <button class="outline-btn" id="add-holding-btn"><span>＋</span> New Holding</button>
+          </div>
+        </div>
+        <div id="holdings-container" style="margin-top:14px;overflow-x:auto"></div>
+      </section>
+
+      <!-- Phase 4: Lending, Borrowing & Split Expenses Section -->
+      <section class="panel" id="lending-section" style="margin-bottom:19px">
+        <div class="panel-heading">
+          <div>
+            <div class="eyebrow">PEOPLE & DEBT LEDGER</div>
+            <h2>Lending, Borrowing & Splits</h2>
+          </div>
+          <div class="btn-group">
+            <button class="outline-btn" id="open-split-modal-btn"><span>☲</span> Split Expense</button>
+            <button class="outline-btn" id="open-lending-modal-btn"><span>⇄</span> Record Loan / Lending</button>
+          </div>
+        </div>
+
+        <div style="margin-top:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="eyebrow">PEOPLE LOANS & ADVANCES</div>
+            <div style="font-size:11px;color:var(--muted)" id="lending-stats-summary"></div>
+          </div>
+          <div class="lending-grid" id="lending-list"></div>
+        </div>
+
+        <div style="margin-top:24px">
+          <div class="eyebrow">SPLIT EXPENSES (YOUR SHARE VS OTHERS)</div>
+          <div class="splits-grid" id="splits-list"></div>
+        </div>
+      </section>
+
+      <!-- Phase 4: Financial Calendar & Recurring Commitments Section -->
+      <section class="panel" id="calendar-section" style="margin-bottom:19px">
+        <div class="panel-heading">
+          <div>
+            <div class="eyebrow">FINANCIAL HORIZON (NEXT 45 DAYS)</div>
+            <h2>Upcoming Commitments & Cash Timeline</h2>
+          </div>
+          <div class="btn-group">
+            <button class="outline-btn" id="add-recurring-btn"><span>＋</span> Recurring Commitment</button>
+          </div>
+        </div>
+
+        <div class="calendar-columns">
+          <div>
+            <div class="eyebrow">CHRONOLOGICAL TIMELINE</div>
+            <div class="timeline-stream" id="calendar-timeline"></div>
+          </div>
+          <div>
+            <div class="eyebrow">ACTIVE RECURRING RULES</div>
+            <div id="recurring-list" style="display:grid;gap:10px;margin-top:14px"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Import Panel -->
+      <section class="panel import-panel" id="imports">
+        <div class="panel-heading">
+          <div>
+            <div class="eyebrow">STAY UP TO DATE</div>
+            <h2>Bring everything together</h2>
+            <p class="section-subtitle">Upload a statement or portfolio snapshot. Review what was found before it’s added.</p>
+          </div>
+        </div>
+        <div class="upload-grid">
+          <label class="upload-tile" for="file-input">
+            <span class="upload-icon">↥</span>
+            <span><strong>Transactions & statements</strong><small>CSV statement import with review</small></span>
+            <span class="tile-arrow">→</span>
+          </label>
+          <label class="upload-tile" for="portfolio-input">
+            <span class="upload-icon chart-icon">⌁</span>
+            <span><strong>Stocks & SIP portfolio</strong><small>CSV portfolio valuation snapshot</small></span>
+            <span class="tile-arrow">→</span>
+          </label>
+        </div>
+        <input id="file-input" type="file" accept=".csv,text/csv" hidden>
+        <input id="portfolio-input" type="file" accept=".csv,.pdf,image/*" multiple hidden>
+      </section>
+
+      <footer>WellnessCFO <span>·</span> Deterministic personal finance tools, connected to your server.</footer>
+    </div>
+  </main>
+
+  <!-- DIALOG: Add / Edit Record (Augmented with Natural Language Entry) -->
+  <dialog id="tx-dialog">
+    <form method="dialog" class="dialog-card" id="tx-form">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">TRANSACTION ENTRY</div>
+          <h2 id="tx-dialog-title">Record money movement</h2>
+        </div>
+        <button type="button" class="icon-btn close-btn" onclick="document.querySelector('#tx-dialog').close()">×</button>
+      </div>
+
+      <!-- Natural Language Input Bar -->
+      <div style="margin-top:14px" id="nl-entry-section">
+        <div class="ai-input-wrap">
+          <span style="color:var(--sage);font-weight:700">✦</span>
+          <input type="text" id="nl-tx-input" placeholder="What happened with your money? (e.g. ₹280 dinner with friends, Got ₹27,000 stipend)">
+          <button type="button" class="primary" id="parse-nl-btn" style="padding:6px 12px;font-size:11px">Interpret</button>
+        </div>
+        <div id="nl-preview-container"></div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px">
+        <button type="button" class="text-link" id="toggle-manual-entry" style="background:transparent;border:0;cursor:pointer;padding:0">Or switch to manual tabs ⌄</button>
+      </div>
+
+      <div id="manual-entry-wrapper" style="display:none">
+        <div class="tab-nav" id="tx-tab-nav">
+          <button type="button" class="tab-btn active" data-tab="income">Income</button>
+          <button type="button" class="tab-btn" data-tab="expense">Expense</button>
+          <button type="button" class="tab-btn" data-tab="account-transfer">Account Transfer</button>
+          <button type="button" class="tab-btn" data-tab="bucket-transfer">Bucket Transfer</button>
+        </div>
+
+        <div id="tx-warning-container"></div>
+        <div id="tx-fields"></div>
+
+        <div class="dialog-actions">
+          <button type="button" class="outline-btn" onclick="document.querySelector('#tx-dialog').close()">Cancel</button>
+          <button type="submit" class="primary" id="save-tx-btn">Save entry</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- DIALOG: Account Manager (Create & Starting Balance) -->
+  <dialog id="account-dialog">
+    <form method="dialog" class="dialog-card" id="account-form">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">ACCOUNT MANAGEMENT</div>
+          <h2 id="account-dialog-title">New Account</h2>
+        </div>
+        <button type="button" class="icon-btn close-btn" onclick="document.querySelector('#account-dialog').close()">×</button>
+      </div>
+
+      <div class="form-grid" style="margin-top:14px">
+        <div class="form-group full-width">
+          <label>Account Name</label>
+          <input type="text" id="acc-name-input" placeholder="HDFC Salary, Cash Wallet, ICICI Credit Card..." required>
+        </div>
+        <div class="form-group">
+          <label>Account Type</label>
+          <select id="acc-type-input">
+            <option value="bank">Bank Account (Liquid cash)</option>
+            <option value="cash">Physical Cash (Liquid cash)</option>
+            <option value="wallet">Digital Wallet (Liquid cash)</option>
+            <option value="credit_card">Credit Card (Liability / Debt)</option>
+            <option value="investment">Investment Brokerage (Asset)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Starting Balance (₹)</label>
+          <input type="number" step="0.01" id="acc-start-bal" placeholder="0.00">
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="outline-btn" onclick="document.querySelector('#account-dialog').close()">Cancel</button>
+        <button type="submit" class="primary">Save account</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- DIALOG: Bucket / Goal Configuration -->
+  <dialog id="bucket-dialog">
+    <form method="dialog" class="dialog-card" id="bucket-form">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">BUCKET & GOAL CONFIGURATION</div>
+          <h2 id="bucket-dialog-title">Configure Bucket</h2>
+        </div>
+        <button type="button" class="icon-btn close-btn" onclick="document.querySelector('#bucket-dialog').close()">×</button>
+      </div>
+
+      <input type="hidden" id="edit-bucket-id">
+      <div class="form-grid" style="margin-top:14px">
+        <div class="form-group full-width">
+          <label>Bucket Name</label>
+          <input type="text" id="bkt-name-input" required>
+        </div>
+        <div class="form-group" id="bkt-type-wrap">
+          <label>Bucket Type</label>
+          <select id="bkt-type-input">
+            <option value="spending">Spending</option>
+            <option value="savings">Savings</option>
+            <option value="emergency">Emergency Fund</option>
+            <option value="investments">Investments</option>
+            <option value="business">Business Fund</option>
+            <option value="custom">Custom Purpose</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Target Amount (₹)</label>
+          <input type="number" step="1000" id="bkt-target-input" placeholder="100000">
+        </div>
+        <div class="form-group">
+          <label>Target Date (Optional)</label>
+          <input type="date" id="bkt-date-input">
+        </div>
+        <div class="form-group">
+          <label>Monthly Contribution Target (₹)</label>
+          <input type="number" step="500" id="bkt-monthly-target" placeholder="5000">
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="outline-btn" onclick="document.querySelector('#bucket-dialog').close()">Cancel</button>
+        <button type="submit" class="primary">Save bucket</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- DIALOG: Import Review (Preserved & Enhanced) -->
+  <dialog id="review-dialog">
+    <form method="dialog" class="dialog-card">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">IMPORT REVIEW</div>
+          <h2 id="dialog-title">Review transactions</h2>
+        </div>
+        <button type="button" class="icon-btn close-btn" onclick="document.querySelector('#review-dialog').close()">×</button>
+      </div>
+      <p id="dialog-description" class="section-subtitle"></p>
+
+      <div style="display:flex;gap:12px;margin:12px 0;">
+        <label style="font-size:11px;color:var(--muted);flex:1">Target Account
+          <select id="import-account-select" style="width:100%;margin-top:4px;padding:6px;border:1px solid #e2e4dc;border-radius:6px"></select>
+        </label>
+        <label style="font-size:11px;color:var(--muted);flex:1">Target Bucket
+          <select id="import-bucket-select" style="width:100%;margin-top:4px;padding:6px;border:1px solid #e2e4dc;border-radius:6px"></select>
+        </label>
+      </div>
+
+      <div id="review-content"></div>
+      <div class="dialog-actions">
+        <button type="button" class="outline-btn" onclick="document.querySelector('#review-dialog').close()">Cancel</button>
+        <button type="button" class="primary" id="confirm-import">Add reviewed records</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- DIALOG: Authentication & Account -->
+  <dialog id="auth-dialog">
+    <form method="dialog" class="dialog-card" id="auth-form">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">ACCOUNT ACCESS</div>
+          <h2 id="auth-title">Log in to WellnessCFO</h2>
+        </div>
+        <button type="button" class="icon-btn close-btn" onclick="document.querySelector('#auth-dialog').close()">×</button>
+      </div>
+
+      <div id="auth-user-view" class="profile-view" style="display:none;margin-top:14px">
+        <div class="profile-avatar-row">
+          <div class="profile-avatar-shell">
+            <img id="profile-avatar-preview" alt="Your profile photo" hidden>
+            <span id="profile-avatar-fallback">A</span>
+          </div>
+          <div class="profile-avatar-actions">
+            <strong>Profile photo</strong>
+            <small>PNG, JPEG, or WebP · up to 512 KB</small>
+            <label class="outline-btn profile-upload-label" for="profile-avatar-file">Choose photo</label>
+            <input id="profile-avatar-file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+            <button type="button" class="text-button" id="profile-avatar-remove" hidden>Remove photo</button>
+          </div>
+        </div>
+
+        <div class="profile-fields">
+          <label class="profile-field">Name
+            <input id="profile-name" type="text" maxlength="80" autocomplete="name">
+          </label>
+          <label class="profile-field">Email
+            <input id="profile-email" type="email" readonly aria-readonly="true">
+          </label>
+          <label class="profile-field">Something I love <span>Optional</span>
+            <input id="profile-something-love" type="text" maxlength="120" placeholder="Leave blank if you prefer">
+          </label>
+          <label class="profile-field">Finance motto <span>Optional</span>
+            <input id="profile-finance-motto" type="text" maxlength="160" placeholder="A reminder you choose for yourself">
+          </label>
+        </div>
+
+        <section class="profile-settings-section" aria-labelledby="preferences-heading">
+          <div class="eyebrow">PREFERENCES</div>
+          <h3 id="preferences-heading">A familiar way to see your finances</h3>
+          <div class="profile-fields preference-fields">
+            <label class="profile-field">Calculation currency
+              <input value="INR · Indian rupee" readonly aria-readonly="true">
+              <small>INR is currently the only supported calculation currency.</small>
+            </label>
+            <label class="profile-field">Date display
+              <select id="profile-date-format">
+                <option value="en-IN">1 Oct 2026</option>
+                <option value="numeric">01/10/2026</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="profile-security-section" aria-labelledby="security-heading">
+          <div class="eyebrow">PRIVACY & SECURITY</div>
+          <h3 id="security-heading">Your account, your control</h3>
+          <p>Email changes are unavailable here and require a separate verification flow. Your session expires after 30 days; logging out invalidates this session. Profile and financial records are stored in the local SQLite database configured for this WellnessCFO server.</p>
+        </section>
+
+        <section class="profile-settings-section" aria-labelledby="backup-heading">
+          <div class="eyebrow">LOCAL DATA</div>
+          <h3 id="backup-heading">Back up your account</h3>
+          <p>Your backup contains the complete local database, including financial records for every account on this WellnessCFO installation. Store it somewhere private and encrypted.</p>
+          <button type="button" class="outline-btn" id="download-backup-btn">Download SQLite backup</button>
+          <span id="backup-status" role="status" aria-live="polite"></span>
+        </section>
+
+        <div class="profile-save-row">
+          <span id="profile-save-status" role="status" aria-live="polite"></span>
+          <button type="button" class="primary" id="profile-save-btn">Save changes</button>
+        </div>
+        <div class="dialog-actions profile-dialog-actions">
+          <button type="button" class="outline-btn" id="logout-btn">Log out</button>
+          <button type="button" class="outline-btn" onclick="document.querySelector('#auth-dialog').close()">Done</button>
+        </div>
+      </div>
+
+      <div id="auth-form-view" style="margin-top:14px">
+        <div class="form-group" id="name-group" style="display:none">
+          <label>Your Name</label>
+          <input type="text" id="auth-name" placeholder="Alice Smith">
+        </div>
+        <div class="form-group" style="margin-top:8px">
+          <label>Email Address</label>
+          <input type="email" id="auth-email" placeholder="you@domain.com" required>
+        </div>
+        <div class="form-group" style="margin-top:8px">
+          <label>Password</label>
+          <input type="password" id="auth-password" placeholder="••••••••" required>
+        </div>
+        <div class="form-group" id="motto-group" style="display:none;margin-top:8px">
+          <label>Financial Motto (Optional)</label>
+          <input type="text" id="auth-motto" placeholder="Intentional Living">
+        </div>
+
+        <div class="dialog-actions" style="margin-top:18px">
+          <button type="submit" class="primary" id="auth-submit-btn">Log in</button>
+        </div>
+
+        <div class="auth-switch">
+          <span id="auth-switch-text">Don't have an account?</span>
+          <a id="auth-toggle-mode">Create account</a>
+        </div>
+      </div>
+    </form>
+  <!-- DIALOG: Investment Holding (Create & Edit) -->
+  <dialog id="holding-dialog">
+    <form method="dialog" class="dialog-card" id="holding-form">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">PORTFOLIO ASSETS</div>
+          <h2 id="holding-dialog-title">New Holding</h2>
+        </div>
+        <button type="button" class="icon-btn close-btn" onclick="document.querySelector('#holding-dialog').close()">×</button>
+      </div>
+
+      <input type="hidden" id="edit-holding-id">
+      <div class="form-grid" style="margin-top:14px">
+        <div class="form-group full-width">
+          <label>Holding Name / Security</label>
+          <input type="text" id="holding-name-input" placeholder="e.g. Parag Parikh Flexi Cap, Tata Motors, Nifty 50 ETF" required>
+        </div>
+        <div class="form-group">
+          <label>Symbol / Ticker</label>
+          <input type="text" id="holding-symbol-input" placeholder="PPFAS, TATAMOTORS, NIFTYBEES">
+        </div>
+        <div class="form-group">
+          <label>Asset Class</label>
+          <select id="holding-type-input">
+            <option value="mutual_fund">Mutual Fund</option>
+            <option value="stock">Equity / Stock</option>
+            <option value="etf">ETF</option>
+            <option value="gold">Sovereign Gold / Gold ETF</option>
+            <option value="crypto">Crypto</option>
+            <option value="other">Other Asset</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Units / Quantity</label>
+          <input type="number" step="0.0001" id="holding-qty-input" placeholder="0" required>
+        </div>
+        <div class="form-group">
+          <label>Average Buy Price (₹)</label>
+          <input type="number" step="0.01" id="holding-buy-price-input" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label>Current Price per Unit (₹)</label>
+          <input type="number" step="0.01" id="holding-curr-price-input" placeholder="Leave blank to use buy price">
+        </div>
+        <div class="form-group">
+          <label>Holding Account</label>
+          <select id="holding-account-select"></select>
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:16px">
+          <input type="checkbox" id="holding-is-sip-input" style="width:auto">
+          <label for="holding-is-sip-input" style="cursor:pointer">Active SIP on this holding</label>
+        </div>
+        <div class="form-group" id="holding-sip-group" style="display:none">
+          <label>Monthly SIP Amount (₹)</label>
+          <input type="number" step="100" id="holding-sip-amount-input" placeholder="5000">
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="outline-btn" onclick="document.querySelector('#holding-dialog').close()">Cancel</button>
+        <button type="submit" class="primary">Save holding</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- DIALOG: Investment Movement (Buy, Sell, SIP Contribution) -->
+  <dialog id="holding-tx-dialog">
+    <form method="dialog" class="dialog-card" id="holding-tx-form">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">INVESTMENT TRANSACTION</div>
+          <h2>Record portfolio movement</h2>
+        </div>
+        <button type="button" class="icon-btn close-btn" onclick="document.querySelector('#holding-tx-dialog').close()">×</button>
+      </div>
+
+      <div class="form-grid" style="margin-top:14px">
+        <div class="form-group full-width">
+          <label>Select Holding</label>
+          <select id="htx-holding-select" required></select>
+        </div>
+        <div class="form-group">
+          <label>Action</label>
+          <select id="htx-type-select">
+            <option value="buy">Buy / Additional Investment</option>
+            <option value="sip_contribution">SIP Contribution</option>
+            <option value="sell">Sell / Redemption</option>
+            <option value="dividend">Dividend Payout</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Units / Quantity</label>
+          <input type="number" step="0.0001" id="htx-qty-input" placeholder="0" required>
+        </div>
+        <div class="form-group">
+          <label>Price per Unit (₹)</label>
+          <input type="number" step="0.01" id="htx-price-input" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label>Funding / Destination Account</label>
+          <select id="htx-account-select"></select>
+        </div>
+        <div class="form-group">
+          <label>Transaction Date</label>
+          <input type="date" id="htx-date-input" required>
+        </div>
+        <div class="form-group full-width">
+          <label>Notes (Optional)</label>
+          <input type="text" id="htx-notes-input" placeholder="Order ID, folio details...">
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="outline-btn" onclick="document.querySelector('#holding-tx-dialog').close()">Cancel</button>
+        <button type="submit" class="primary">Record movement</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- DIALOG: Lending & Borrowing (Create Loan) -->
+  <dialog id="lending-dialog">
+    <form method="dialog" class="dialog-card" id="lending-form">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">PEOPLE FINANCES</div>
+          <h2>Record Loan / Advance</h2>
+        </div>
+        <button type="button" class="icon-btn close-btn" onclick="document.querySelector('#lending-dialog').close()">×</button>
+      </div>
+
+      <div class="form-grid" style="margin-top:14px">
+        <div class="form-group">
+          <label>Movement Type</label>
+          <select id="loan-type-select">
+            <option value="lent">Money Lent (Receivable — they owe me)</option>
+            <option value="borrowed">Money Borrowed (Payable — I owe them)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Person / Contact Name</label>
+          <input type="text" id="loan-person-input" placeholder="e.g. Aakash, Rahul, Priya" required>
+        </div>
+        <div class="form-group">
+          <label>Principal Amount (₹)</label>
+          <input type="number" step="1" id="loan-amount-input" placeholder="2000" required>
+        </div>
+        <div class="form-group">
+          <label>Date Given / Borrowed</label>
+          <input type="date" id="loan-date-input" required>
+        </div>
+        <div class="form-group">
+          <label>Due Date (Optional)</label>
+          <input type="date" id="loan-due-date-input">
+        </div>
+        <div class="form-group">
+          <label>Account Used</label>
+          <select id="loan-account-select"></select>
+        </div>
+        <div class="form-group full-width">
+          <label>Notes / Context</label>
+          <input type="text" id="loan-notes-input" placeholder="e.g. For concert tickets, travel advance...">
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="outline-btn" onclick="document.querySelector('#lending-dialog').close()">Cancel</button>
+        <button type="submit" class="primary">Save record</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- DIALOG: Loan Repayment -->
+  <dialog id="repayment-dialog">
+    <form method="dialog" class="dialog-card" id="repayment-form">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">SETTLEMENT & REPAYMENT</div>
+          <h2>Record Repayment</h2>
+        </div>
+        <button type="button" class="icon-btn close-btn" onclick="document.querySelector('#repayment-dialog').close()">×</button>
+      </div>
+
+      <input type="hidden" id="repay-loan-id">
+      <div id="repay-loan-details" style="font-size:12px;color:var(--sage-dark);margin:10px 0;padding:10px;background:#f3f6ee;border-radius:7px"></div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Repayment Amount (₹)</label>
+          <input type="number" step="1" id="repay-amount-input" required>
+        </div>
+        <div class="form-group">
+          <label>Repayment Date</label>
+          <input type="date" id="repay-date-input" required>
+        </div>
+        <div class="form-group">
+          <label>Settlement Account</label>
+          <select id="repay-account-select"></select>
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <input type="text" id="repay-notes-input" placeholder="e.g. GPay UPI settlement">
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="outline-btn" onclick="document.querySelector('#repayment-dialog').close()">Cancel</button>
+        <button type="submit" class="primary">Record repayment</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- DIALOG: Split Expense -->
+  <dialog id="split-dialog">
+    <form method="dialog" class="dialog-card" id="split-form">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">GROUP EXPENSE</div>
+          <h2>Split an Expense</h2>
+        </div>
+        <button type="button" class="icon-btn close-btn" onclick="document.querySelector('#split-dialog').close()">×</button>
+      </div>
+
+      <div class="form-grid" style="margin-top:14px">
+        <div class="form-group full-width">
+          <label>Description</label>
+          <input type="text" id="split-desc-input" placeholder="e.g. Dinner at Olive, Airbnb booking" required>
+        </div>
+        <div class="form-group">
+          <label>Total Bill Amount (₹)</label>
+          <input type="number" step="1" id="split-total-input" placeholder="3000" required>
+        </div>
+        <div class="form-group">
+          <label>Your Personal Share (₹)</label>
+          <input type="number" step="1" id="split-my-share-input" placeholder="1000" required>
+        </div>
+        <div class="form-group">
+          <label>Payment Account</label>
+          <select id="split-account-select"></select>
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="split-date-input" required>
+        </div>
+        <div class="form-group full-width">
+          <label>Participants Breakdown (Name: Share)</label>
+          <input type="text" id="split-participants-input" placeholder="e.g. Aakash: 1000, Rohit: 1000" required>
+          <small style="color:var(--muted);font-size:10px;margin-top:3px">Comma-separated names and amounts. Amounts owed to you will be tracked as receivables.</small>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="outline-btn" onclick="document.querySelector('#split-dialog').close()">Cancel</button>
+        <button type="submit" class="primary">Save split</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- DIALOG: Recurring Commitment -->
+  <dialog id="recurring-dialog">
+    <form method="dialog" class="dialog-card" id="recurring-form">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">AUTOMATED CASH FLOW</div>
+          <h2 id="recurring-dialog-title">New Recurring Commitment</h2>
+        </div>
+        <button type="button" class="icon-btn close-btn" onclick="document.querySelector('#recurring-dialog').close()">×</button>
+      </div>
+
+      <input type="hidden" id="edit-recurring-id">
+      <div class="form-grid" style="margin-top:14px">
+        <div class="form-group full-width">
+          <label>Commitment Name</label>
+          <input type="text" id="rec-name-input" placeholder="e.g. Netflix, Rent, Parag Parikh SIP, Salary" required>
+        </div>
+        <div class="form-group">
+          <label>Commitment Type</label>
+          <select id="rec-type-select">
+            <option value="expense">Expense / Bill / Subscription</option>
+            <option value="sip">SIP / Systematic Investment</option>
+            <option value="income">Recurring Income (Stipend / Salary)</option>
+            <option value="transfer">Recurring Transfer</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <input type="text" id="rec-category-input" placeholder="e.g. Subscriptions, Housing, Investments" required>
+        </div>
+        <div class="form-group">
+          <label>Expected Amount (₹)</label>
+          <input type="number" step="1" id="rec-amount-input" placeholder="2000" required>
+        </div>
+        <div class="form-group">
+          <label>Frequency</label>
+          <select id="rec-freq-select">
+            <option value="monthly">Monthly</option>
+            <option value="weekly">Weekly</option>
+            <option value="daily">Daily</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Next Expected Date</label>
+          <input type="date" id="rec-date-input" required>
+        </div>
+        <div class="form-group">
+          <label>Default Account</label>
+          <select id="rec-account-select"></select>
+        </div>
+        <div class="form-group">
+          <label>Default Bucket</label>
+          <select id="rec-bucket-select"></select>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="outline-btn" onclick="document.querySelector('#recurring-dialog').close()">Cancel</button>
+        <button type="submit" class="primary">Save commitment</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>

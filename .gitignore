@@ -15,6 +15,7 @@ mobile/android/app/build/
 mobile/android/app/.cxx/
 mobile/android/local.properties
 mobile/android/app/debug.keystore
+mobile/.phone-share/
 *.apk
 *.aab
 *.ipa

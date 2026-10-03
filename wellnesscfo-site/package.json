@@ -1,0 +1,14 @@
+{
+  "name": "wellnesscfo",
+  "version": "1.0.0",
+  "description": "WellnessCFO — AI Personal CFO & Financial Command Center",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/run-all-tests.js"
+  },
+  "keywords": ["personal-finance", "cfo", "wealth-management"],
+  "author": "",
+  "license": "ISC"
+}
+

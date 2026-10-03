@@ -1,47 +1,24 @@
 # Stillwell Mobile
 
-Native Expo / React Native implementation. This is a separate mobile application; it does not wrap or display the web app.
+Native Expo / React Native app for Android and iOS. Financial records are stored locally with AsyncStorage; there is no bank login, bank connection, cloud sync, or statement upload.
 
-## Run
+## Enter and import your data
+
+- Add income or expenses manually from **Activity → Add transaction**. Tap a saved row to edit it; long press to delete.
+- Import a bank statement from **Activity → Import bank statement** or the Home screen.
+- CSV imports recognize common headers for date, description/narration, debit/withdrawal, credit/deposit, or amount plus transaction type. If a bank uses unusual labels or formats, export CSV with those columns or add transactions manually.
+- PDF import reads selectable text on-device. Scanned/image-only PDFs are not supported because this version has no OCR. PDF layouts vary by bank, so review each parsed row.
+- The review screen lets you select/skip rows and edit description, date, amount, category, and income/expense type. Likely duplicates are unchecked initially. Confirm to save.
+- The statement file is read from the picker cache and is not saved into the app's finance records. No credentials are requested.
+- Existing demo transactions from earlier builds are discarded during migration. Set your opening balance in the profile, then import the transactions for the period after that balance date. This prevents demo figures appearing as your finances.
+
+## Run locally
 
 ```sh
 npm install
 npm start
 ```
 
-Open the project with Expo Go while developing. For local native builds, install Android Studio with its SDK and use `npm run android`; macOS with Xcode is required for a local iOS build.
+Native PDF extraction requires a native build; it does not work in Expo Go. For Android, install JDK 17 and Android SDK API 36, then run `npm run android` or build the release APK from `android` with `./gradlew assembleRelease`. For iOS, macOS and Xcode are required for local builds; iPhone distribution requires Apple signing and distribution setup.
 
-## Android APK
-
-The current Android APK is available at:
-
-```text
-android/app/build/outputs/apk/release/app-release.apk
-```
-
-Copy the APK to an Android phone and open it to install. Android may ask you to allow installs from the file manager or browser used to open it.
-
-To rebuild locally on Windows, install a JDK 17 and Android SDK with API 36, then run:
-
-```powershell
-$env:ANDROID_HOME = "C:\path\to\Android\Sdk"
-$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
-cd android
-./gradlew assembleRelease
-```
-
-To build through Expo's cloud builder, install EAS CLI and sign in to an Expo account:
-
-```sh
-npx eas-cli build --platform android --profile preview
-```
-
-The preview profile is configured to produce an installable APK. A successful build returns an Expo download link. iOS TestFlight/App Store builds require Apple developer credentials.
-
-The same React Native app supports iPhone. The `preview` EAS profile is configured for internal iOS distribution, which requires an Apple Developer account and a registered iPhone device. For TestFlight or App Store distribution, use the `production` profile and an Apple Developer account with App Store Connect access.
-
-For an iOS Simulator build without Apple Developer membership, use the `ios-simulator` EAS profile. This produces a simulator app that runs on a Mac simulator, not an installable iPhone app. It still requires an Expo account and an EAS cloud build.
-
-The locally generated APK is signed with the Android debug key for sideloading. Create and configure a private release keystore before distributing through an app store or sharing future updates publicly.
-
-The app saves its demo data on-device with AsyncStorage. Authentication, cloud synchronization, server-side AI, and secure financial-data backup are not connected yet.
+Statement parsing is heuristic and should be checked against the original statement before confirming. Scanned PDFs, bank connections, OCR, automatic categorization learning, and server AI are not included.
