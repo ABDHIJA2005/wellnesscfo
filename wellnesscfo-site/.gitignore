@@ -1,0 +1,8 @@
+# Local financial data and generated audit exports must never be committed.
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+*.db
+*.sqlite
+*.sqlite3
+phase5-audit.csv
