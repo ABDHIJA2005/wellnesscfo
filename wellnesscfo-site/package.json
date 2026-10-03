@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/financial-engine.test.js && node test/phase2-core-cfo.test.js && node test/phase3-ai.test.js && node test/e2e-phase3-verification.js && node test/phase4-advanced.test.js && node test/e2e-phase4-verification.js && node test/phase5-import-privacy.test.js"
+    "test": "node test/run-all-tests.js"
   },
   "keywords": ["personal-finance", "cfo", "wealth-management"],
   "author": "",

@@ -35,6 +35,30 @@ function initDatabase(dbPath) {
       expires_at TEXT NOT NULL
     );
 
+    -- Phase 6: keep personal settings separate from financial records.
+    CREATE TABLE IF NOT EXISTS user_profiles (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      something_love TEXT,
+      finance_motto TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS user_preferences (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      currency TEXT NOT NULL DEFAULT 'INR' CHECK (currency = 'INR'),
+      date_format TEXT NOT NULL DEFAULT 'en-IN' CHECK (date_format IN ('en-IN', 'numeric')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS profile_avatars (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      mime_type TEXT NOT NULL CHECK (mime_type IN ('image/png', 'image/jpeg', 'image/webp')),
+      image_data BLOB NOT NULL,
+      byte_size INTEGER NOT NULL CHECK (byte_size > 0 AND byte_size <= 524288),
+      updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS accounts (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -234,6 +258,12 @@ function initDatabase(dbPath) {
   if (!accountCols.includes('starting_balance')) {
     db.exec('ALTER TABLE accounts ADD COLUMN starting_balance REAL DEFAULT 0;');
   }
+
+  db.exec(`
+    INSERT OR IGNORE INTO user_profiles (user_id, name, finance_motto)
+      SELECT id, name, motto FROM users;
+    INSERT OR IGNORE INTO user_preferences (user_id) SELECT id FROM users;
+  `);
 
   return db;
 }

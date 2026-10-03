@@ -6,6 +6,8 @@ const LEGACY_KEY = 'wellnesscfo-data-v1';
 const MIGRATED_KEY = 'wellnesscfo-migrated-v1';
 
 let currentUser = null;
+let profileAvatarData = null;
+let userPreferences = { currency: 'INR', dateFormat: 'en-IN' };
 let currentSummary = null;
 let activeFilter = 'all';
 let activeCategory = 'all';
@@ -23,6 +25,14 @@ function money(n) {
     currency: 'INR',
     maximumFractionDigits: 0
   }).format(Number(n) || 0);
+}
+
+function formatDate(value, dateFormat = userPreferences.dateFormat) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat(dateFormat === 'numeric' ? 'en-GB' : 'en-IN', dateFormat === 'numeric'
+    ? { day: '2-digit', month: '2-digit', year: 'numeric' }
+    : { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
 }
 
 function esc(s) {
@@ -60,7 +70,7 @@ async function api(path, options = {}) {
     const res = await fetch(`${API_BASE}${path}`, { credentials: 'omit', ...options, headers });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      if (res.status === 401 && !path.startsWith('/auth/')) {
+      if (res.status === 401 && !['/auth/login', '/auth/signup'].includes(path)) {
         handleUnauthorized();
       }
       throw new Error(data.error || `HTTP error ${res.status}`);
@@ -80,7 +90,7 @@ function setSyncStatus(online) {
   const el = document.querySelector('#sync-status');
   if (!el) return;
   if (online) {
-    el.innerHTML = '<span class="sync-dot"></span> Cloud active';
+    el.innerHTML = '<span class="sync-dot"></span> Server connected';
   } else {
     el.innerHTML = '<span class="sync-dot offline"></span> Offline cache';
   }
@@ -89,7 +99,10 @@ function setSyncStatus(online) {
 // Authentication
 function handleUnauthorized() {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(CACHE_KEY);
   currentUser = null;
+  profileAvatarData = null;
+  userPreferences = { currency: 'INR', dateFormat: 'en-IN' };
   updateAuthUI();
   openAuthDialog(false);
 }
@@ -100,6 +113,7 @@ async function checkAuth() {
   try {
     const data = await api('/auth/me');
     currentUser = data.user;
+    await loadProfileSettings();
     updateAuthUI();
     return true;
   } catch {
@@ -107,6 +121,57 @@ async function checkAuth() {
     updateAuthUI();
     return false;
   }
+}
+
+function renderAvatar(element, initial) {
+  if (!element) return;
+  element.replaceChildren();
+  if (profileAvatarData) {
+    const image = document.createElement('img');
+    image.src = profileAvatarData;
+    image.alt = 'Profile photo';
+    element.append(image);
+  } else {
+    element.textContent = initial;
+  }
+}
+
+function fillProfileEditor(profile) {
+  const values = {
+    '#profile-name': profile.name,
+    '#profile-email': profile.email,
+    '#profile-something-love': profile.somethingILove,
+    '#profile-finance-motto': profile.financeMotto
+  };
+  for (const [selector, value] of Object.entries(values)) {
+    const field = document.querySelector(selector);
+    if (field && document.activeElement !== field) field.value = value || '';
+  }
+  const dateFormat = document.querySelector('#profile-date-format');
+  if (dateFormat && document.activeElement !== dateFormat) dateFormat.value = userPreferences.dateFormat;
+  const removeButton = document.querySelector('#profile-avatar-remove');
+  if (removeButton) removeButton.hidden = !profile.hasAvatar;
+  const image = document.querySelector('#profile-avatar-preview');
+  const fallback = document.querySelector('#profile-avatar-fallback');
+  if (image && fallback) {
+    image.hidden = !profileAvatarData;
+    fallback.hidden = Boolean(profileAvatarData);
+    image.src = profileAvatarData || '';
+    fallback.textContent = profile.avatarText || 'A';
+  }
+}
+
+async function loadProfileSettings() {
+  if (!currentUser) return;
+  const [profileResponse, preferenceResponse, avatarResponse] = await Promise.all([
+    api('/profile'), api('/profile/preferences'), api('/profile/avatar')
+  ]);
+  const profile = profileResponse.profile;
+  userPreferences = preferenceResponse.preferences;
+  profileAvatarData = avatarResponse.avatar;
+  currentUser = { ...currentUser, ...profile };
+  updateAuthUI();
+  fillProfileEditor(profile);
 }
 
 function updateAuthUI() {
@@ -118,15 +183,16 @@ function updateAuthUI() {
 
   if (currentUser) {
     const initial = (currentUser.avatarText || currentUser.name.charAt(0) || 'A').toUpperCase();
-    if (topAvatar) topAvatar.textContent = initial;
+    renderAvatar(topAvatar, initial);
     if (topName) topName.textContent = currentUser.name;
-    if (sideAvatar) sideAvatar.textContent = initial;
+    renderAvatar(sideAvatar, initial);
     if (sideName) sideName.textContent = currentUser.name;
     if (sideStatus) sideStatus.textContent = currentUser.motto || 'Personal CFO';
   } else {
-    if (topAvatar) topAvatar.textContent = '?';
+    profileAvatarData = null;
+    renderAvatar(topAvatar, '?');
     if (topName) topName.textContent = 'Log in';
-    if (sideAvatar) sideAvatar.textContent = '?';
+    renderAvatar(sideAvatar, '?');
     if (sideName) sideName.textContent = 'Guest';
     if (sideStatus) sideStatus.textContent = 'Click to sign in';
   }
@@ -134,7 +200,7 @@ function updateAuthUI() {
 
 // Dashboard Refresh & Data Orchestration
 async function refreshDashboard() {
-  const todayStr = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date());
+  const todayStr = formatDate(new Date());
   const todayEl = document.querySelector('#today');
   if (todayEl) todayEl.textContent = todayStr;
 
@@ -626,7 +692,7 @@ function renderTransactions(txs) {
     const sign = isTransfer ? '' : (isIncome ? '+' : '−');
     const tagClass = isTransfer ? 'tag-transfer' : (isIncome ? 'tag-income' : 'tag-expense');
     const displayType = isTransfer ? 'Transfer' : (isIncome ? 'Income' : 'Expense');
-    const formattedDate = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(t.date + 'T00:00:00'));
+    const formattedDate = formatDate(new Date(t.date + 'T00:00:00'));
 
     return `
       <div class="transaction-row">
@@ -1773,11 +1839,8 @@ function openAuthDialog(forceRegister = false) {
   if (currentUser) {
     userView.style.display = 'block';
     formView.style.display = 'none';
-    document.querySelector('#auth-title').textContent = 'Account Profile';
-    document.querySelector('#auth-logged-in-msg').innerHTML = `
-      Logged in as <strong>${esc(currentUser.name)}</strong> (${esc(currentUser.email)})<br>
-      <span style="color:var(--muted);font-size:11px">Session is active on this device.</span>
-    `;
+    document.querySelector('#auth-title').textContent = 'Profile & settings';
+    loadProfileSettings().catch(err => toast(err.message || 'Could not load your profile'));
   } else {
     userView.style.display = 'none';
     formView.style.display = 'block';
@@ -1838,6 +1901,7 @@ async function handleAuthSubmit(e) {
 
     localStorage.setItem(TOKEN_KEY, res.token);
     currentUser = res.user;
+    await loadProfileSettings();
     updateAuthUI();
     document.querySelector('#auth-dialog').close();
     toast(`Welcome, ${currentUser.name}`);
@@ -1869,6 +1933,7 @@ async function handleDemoLogin() {
 
     localStorage.setItem(TOKEN_KEY, res.token);
     currentUser = res.user;
+    await loadProfileSettings();
     updateAuthUI();
     document.querySelector('#auth-dialog').close();
     toast('Logged into Demo Account');
@@ -1883,11 +1948,64 @@ async function handleLogout() {
     await api('/auth/logout', { method: 'POST' });
   } catch {}
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(CACHE_KEY);
   currentUser = null;
+  profileAvatarData = null;
+  userPreferences = { currency: 'INR', dateFormat: 'en-IN' };
   updateAuthUI();
   document.querySelector('#auth-dialog').close();
   toast('Logged out successfully');
   await refreshDashboard();
+}
+
+async function saveProfileSettings() {
+  const status = document.querySelector('#profile-save-status');
+  const button = document.querySelector('#profile-save-btn');
+  button.disabled = true;
+  status.textContent = 'Saving…';
+  try {
+    const [profileResponse, preferenceResponse] = await Promise.all([
+      api('/profile', {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: document.querySelector('#profile-name').value,
+          somethingILove: document.querySelector('#profile-something-love').value,
+          financeMotto: document.querySelector('#profile-finance-motto').value
+        })
+      }),
+      api('/profile/preferences', {
+        method: 'PUT',
+        body: JSON.stringify({ currency: 'INR', dateFormat: document.querySelector('#profile-date-format').value })
+      })
+    ]);
+    currentUser = { ...currentUser, ...profileResponse.profile };
+    userPreferences = preferenceResponse.preferences;
+    updateAuthUI();
+    status.textContent = 'Saved to your account';
+    await refreshDashboard();
+  } catch (err) {
+    status.textContent = err.message || 'Could not save changes';
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary);
+}
+
+async function uploadProfileAvatar(file) {
+  const allowed = ['image/png', 'image/jpeg', 'image/webp'];
+  if (!allowed.includes(file.type)) throw new Error('Choose a PNG, JPEG, or WebP image');
+  if (file.size > 512 * 1024) throw new Error('Avatar images must be 512 KB or smaller');
+  const dataUrl = `data:${file.type};base64,${bytesToBase64(new Uint8Array(await file.arrayBuffer()))}`;
+  await api('/profile/avatar', { method: 'PUT', body: JSON.stringify({ dataUrl }) });
+  await loadProfileSettings();
+  toast('Profile photo updated');
 }
 
 // ==========================================
@@ -2512,6 +2630,27 @@ function initApp() {
   document.querySelector('#auth-form')?.addEventListener('submit', handleAuthSubmit);
   document.querySelector('#demo-login-btn')?.addEventListener('click', handleDemoLogin);
   document.querySelector('#logout-btn')?.addEventListener('click', handleLogout);
+  document.querySelector('#profile-save-btn')?.addEventListener('click', saveProfileSettings);
+  document.querySelector('#profile-avatar-file')?.addEventListener('change', async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      await uploadProfileAvatar(file);
+    } catch (err) {
+      toast(err.message || 'Could not update profile photo');
+    } finally {
+      event.target.value = '';
+    }
+  });
+  document.querySelector('#profile-avatar-remove')?.addEventListener('click', async () => {
+    try {
+      await api('/profile/avatar', { method: 'DELETE' });
+      await loadProfileSettings();
+      toast('Profile photo removed');
+    } catch (err) {
+      toast(err.message || 'Could not remove profile photo');
+    }
+  });
 
   // Phase 4 UI Triggers
   document.querySelector('#add-holding-btn')?.addEventListener('click', () => openHoldingModal());

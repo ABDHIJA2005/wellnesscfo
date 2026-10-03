@@ -1,15 +1,25 @@
 # WellnessCFO
 
-A standalone, local-first personal finance dashboard inspired by the calm, editorial feel of Stillwell. This is a separate project; it does not modify Stillwell.
+WellnessCFO is a server-backed personal finance dashboard with deterministic financial calculations and an editorial, responsive interface.
 
-## Run
+## Run locally
 
-Open `index.html` in a modern browser. Data is stored in that browser's local storage.
+Use a supported Node.js release with the built-in `node:sqlite` module:
 
-## Imports
+```sh
+npm start
+```
 
-The demo supports transaction CSV files, PDFs, and screenshots/images through an import review flow. CSV transaction rows are parsed locally. Image and PDF uploads are staged for review; automatic extraction is not connected to an OCR or AI service yet. Review and confirm rows before they are saved. Transaction deduplication compares date, amount, and normalized description. Portfolio screenshots can be recorded as dated portfolio snapshots.
+Then open <http://localhost:3000>. The server stores application data in `data/wellnesscfo.db` by default. Set `DB_PATH` to use a different SQLite file and `PORT` to use a different port.
 
-## Privacy
+## Profile and privacy
 
-The demo stores imported records and portfolio snapshots in browser local storage. It does not upload files to a server.
+Profile and preference records are kept in separate SQLite tables from financial activity. Profile photos accept PNG, JPEG, and WebP files up to 512 KB and are stored in a separate user-scoped table. Email is read-only in profile settings. INR is the only supported calculation currency; the date display preference is saved per account.
+
+Passwords are hashed with Node.js `scrypt`. Sessions expire after 30 days and logging out invalidates the active session. The browser keeps the session token and a temporary dashboard summary cache; logout clears both. This app does not provide multi-currency calculations or cloud object storage.
+
+## Tests
+
+```sh
+npm test -- --runInBand
+```

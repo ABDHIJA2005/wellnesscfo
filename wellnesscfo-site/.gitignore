@@ -1,4 +1,8 @@
 # Local financial data and generated audit exports must never be committed.
+.env
+.env.*
+!.env.example
+node_modules/
 data/*.db
 data/*.sqlite
 data/*.sqlite3
@@ -6,3 +10,5 @@ data/*.sqlite3
 *.sqlite
 *.sqlite3
 phase5-audit.csv
+.phase*-browser/
+*.log

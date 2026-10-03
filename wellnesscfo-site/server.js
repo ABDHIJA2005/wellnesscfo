@@ -42,6 +42,16 @@ const { parseNaturalLanguageTransaction } = require('./server/ai/deterministic-p
 const { processAIQuery } = require('./server/ai/cfo-assistant');
 const { parseCsvRecords } = require('./server/statement-import');
 const { sanitizeForLogs } = require('./server/ai/privacy');
+const {
+  ensureUserProfile,
+  getProfile,
+  updateProfile,
+  getPreferences,
+  updatePreferences,
+  saveAvatar,
+  getAvatarDataUrl,
+  deleteAvatar
+} = require('./server/profile-store');
 
 const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'wellnesscfo.db');
@@ -154,6 +164,8 @@ const server = http.createServer(async (req, res) => {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(userId, email.trim(), hash, salt, name.trim(), motto || null, avatar, now);
 
+        ensureUserProfile(db, userId);
+
         setupDefaultEntities(db, userId);
         const session = createSession(db, userId);
 
@@ -221,6 +233,32 @@ const server = http.createServer(async (req, res) => {
       const user = authenticate(req);
       if (!user) {
         return sendJSON(res, 401, { error: 'Authentication required' });
+      }
+
+      // Phase 6: authenticated, user-scoped profile and preference APIs.
+      if (pathname === '/api/profile' && method === 'GET') {
+        return sendJSON(res, 200, { profile: getProfile(db, user.id) });
+      }
+      if (pathname === '/api/profile' && method === 'PUT') {
+        const profile = await parseBody(req);
+        return sendJSON(res, 200, { profile: updateProfile(db, user.id, profile) });
+      }
+      if (pathname === '/api/profile/preferences' && method === 'GET') {
+        return sendJSON(res, 200, { preferences: getPreferences(db, user.id) });
+      }
+      if (pathname === '/api/profile/preferences' && method === 'PUT') {
+        const preferences = await parseBody(req);
+        return sendJSON(res, 200, { preferences: updatePreferences(db, user.id, preferences) });
+      }
+      if (pathname === '/api/profile/avatar' && method === 'GET') {
+        return sendJSON(res, 200, { avatar: getAvatarDataUrl(db, user.id) }, { 'Cache-Control': 'no-store' });
+      }
+      if (pathname === '/api/profile/avatar' && method === 'PUT') {
+        const { dataUrl } = await parseBody(req);
+        return sendJSON(res, 200, saveAvatar(db, user.id, dataUrl), { 'Cache-Control': 'no-store' });
+      }
+      if (pathname === '/api/profile/avatar' && method === 'DELETE') {
+        return sendJSON(res, 200, deleteAvatar(db, user.id));
       }
 
       // 5. Financial Summary
@@ -762,7 +800,7 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       const safeMessage = err && err.message ? String(err.message).replace(/\s+/g, ' ').slice(0, 200) : 'Internal server error';
       console.error('API Error:', sanitizeForLogs(safeMessage));
-      return sendJSON(res, 500, { error: safeMessage || 'Internal server error' });
+      return sendJSON(res, err && err.statusCode === 400 ? 400 : 500, { error: safeMessage || 'Internal server error' });
     }
   }
 
