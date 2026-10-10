@@ -3,7 +3,7 @@
 
 const assert = require('assert');
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
 
 async function runE2EPhase4() {
   console.log('=== STARTING PHASE 4 LIVE SERVER E2E VERIFICATION ===\n');
