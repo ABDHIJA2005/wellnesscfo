@@ -115,6 +115,7 @@ async function run() {
     const html = await page.text();
     assert.equal(html.includes('demo-login-btn'), false, 'The demo account control is not shipped');
     assert.equal(html.includes('Password123!'), false, 'Demo credentials are not shipped');
+    assert.equal((html.match(/<dialog\b/g) || []).length, (html.match(/<\/dialog>/g) || []).length, 'Every dialog is closed so account and finance dialogs remain independent');
 
     const clientScript = await (await fetch(`${base}/app.js`)).text();
     assert.equal(clientScript.includes('demo@wellnesscfo.com'), false, 'Demo account credentials are absent from client code');
